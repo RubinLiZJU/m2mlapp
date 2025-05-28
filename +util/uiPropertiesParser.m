@@ -30,9 +30,25 @@ function uiProperties = uiPropertiesParser(matlabCode, treeCode)
     propCode.stackChildrens    = zeros(nProperties, 1);
     % propCode.stackSiblingOrder = zeros(nProperties, 1);
 
-    % nonProperties = table('Size', [0,2],                       ...
-    %                       'VariableTypes', {'cell', 'double'}, ...
-    %                       'VariableNames', {'CodeContent', 'CodeRow'});
+    % Added: Extract comments before each component initialization
+    commentMap = containers.Map('KeyType','char','ValueType','any');
+    lastComment = {};
+    for ii = 1:numel(blockCode2)
+        line = strtrim(blockCode2{ii});
+        if startsWith(line, '%')
+            % Accumulate multi-line comments
+            lastComment{end+1} = blockCode2{ii};
+        elseif ~isempty(line)
+            objName = regexp(line, 'app[.](?<name>\w+)', 'names');
+            if ~isempty(objName)
+                key = objName(1).name;
+                if ~isempty(lastComment)
+                    commentMap(key) = lastComment;
+                end
+            end
+            lastComment = {};
+        end
+    end
 
     for ii = 1:numel(blockCode2)
         objName = regexp(blockCode2{ii}, 'app[.](?<name>\w+)', 'names');
@@ -83,6 +99,13 @@ function uiProperties = uiPropertiesParser(matlabCode, treeCode)
             propCode.callbackName{idx1} = [propCode.callbackName{idx1}; objCallback.callbackName];
             propCode.callbackFcn{idx1}  = [propCode.callbackFcn{idx1};  objCallback.callbackFcn];
 
+            % Added: Save comment
+            if isKey(commentMap, objName)
+                propCode.Comment{idx1} = commentMap(objName);
+            else
+                propCode.Comment{idx1} = {};
+            end
+
         else
             % nonProperties(end+1,:) = {blockCode2{ii}, ii};
         end
@@ -91,5 +114,9 @@ function uiProperties = uiPropertiesParser(matlabCode, treeCode)
 
     % Join info in a single table...
     uiProperties = join(propCode, propNames, 'Keys', 'name');
+
+    % Sort by properties block order to ensure property declaration order is consistent
+    [~, idx] = sort(uiProperties.id);
+    uiProperties = uiProperties(idx, :);
 
 end

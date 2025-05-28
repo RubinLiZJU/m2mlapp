@@ -11,7 +11,7 @@ function treeTable = treeCodeGeneration(matlabCode)
     end
     
     % treeStruct >> treeTable
-    treeTable  = struct('Access',    {}, ...
+    templateStruct = struct('Access',    {}, ...
                         'Static',    {}, ... % Only for METHODS blocks
                         'Type',      {}, ...
                         'Items',     {}, ...
@@ -20,15 +20,22 @@ function treeTable = treeCodeGeneration(matlabCode)
                         'EndLine',   {}, ...
                         'EndColumn', {});
     
+    % Compatibility: standardize each struct to the template
+    tableCell = cell(1, numel(treeStruct));
     for ii = 1:numel(treeStruct)
-        % Create a homogenous struct, turning possible struct2table 
-        % conversion
-        if ~isfield(treeStruct{ii}, 'Static')
-            treeStruct{ii}.Static = -1;
+        thisStruct = treeStruct{ii};
+        if ~isstruct(thisStruct)
+            error('The %d-th result of mtree parsing is not a struct, actual type is %s.', ii, class(thisStruct));
         end
-
-        treeTable(ii) = treeStruct{ii};
+        standardizedStruct = templateStruct;
+        fieldList = fieldnames(templateStruct);
+        for jj = 1:numel(fieldList)
+            if isfield(thisStruct, fieldList{jj})
+                standardizedStruct.(fieldList{jj}) = thisStruct.(fieldList{jj});
+            end
+        end
+        tableCell{ii} = standardizedStruct;
     end
-    treeTable = struct2table(treeTable);
+    treeTable = struct2table([tableCell{:}]);
 
 end
